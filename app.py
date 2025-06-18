@@ -1,9 +1,13 @@
-import sqlite3
+import os
+import psycopg2
 import pandas as pd
 import streamlit as st
 from typing import List, Dict
 
-DB_PATH = "event_poll.db"
+DB_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:[YOUR-PASSWORD]@db.zwghpoibdgbldnbsafym.supabase.co:5432/postgres",
+)
 
 SESSION_CONFIG = [
     ("Session 1", 5),
@@ -13,22 +17,22 @@ SESSION_CONFIG = [
 ]
 
 def get_connection():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+    return psycopg2.connect(DB_URL)
 
-def init_db(conn: sqlite3.Connection):
-    conn.execute(
+def init_db(conn):
+    cur = conn.cursor()
+    cur.execute(
         """CREATE TABLE IF NOT EXISTS sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id BIGSERIAL PRIMARY KEY,
                 name TEXT UNIQUE NOT NULL,
                 capacity INTEGER NOT NULL
             );"""
     )
-    conn.execute(
+    cur.execute(
         """CREATE TABLE IF NOT EXISTS registrations (
                 participant TEXT NOT NULL,
-                session_id INTEGER NOT NULL,
-                PRIMARY KEY(participant, session_id),
-                FOREIGN KEY(session_id) REFERENCES sessions(id)
+                session_id BIGINT NOT NULL REFERENCES sessions(id),
+                PRIMARY KEY(participant, session_id)
             );"""
     )
     conn.commit()
@@ -37,16 +41,16 @@ def init_db(conn: sqlite3.Connection):
     cur.execute("SELECT COUNT(*) FROM sessions")
     if cur.fetchone()[0] == 0:
         cur.executemany(
-            "INSERT INTO sessions(name, capacity) VALUES (?, ?)", SESSION_CONFIG
+            "INSERT INTO sessions(name, capacity) VALUES (%s, %s)", SESSION_CONFIG
         )
         conn.commit()
 
 
-def get_sessions(conn: sqlite3.Connection) -> pd.DataFrame:
+def get_sessions(conn) -> pd.DataFrame:
     return pd.read_sql_query("SELECT * FROM sessions", conn)
 
 
-def get_counts(conn: sqlite3.Connection) -> Dict[int, int]:
+def get_counts(conn) -> Dict[int, int]:
     cur = conn.cursor()
     cur.execute(
         "SELECT session_id, COUNT(*) FROM registrations GROUP BY session_id"
@@ -54,19 +58,19 @@ def get_counts(conn: sqlite3.Connection) -> Dict[int, int]:
     return {row[0]: row[1] for row in cur.fetchall()}
 
 
-def get_user_sessions(conn: sqlite3.Connection, name: str) -> List[int]:
+def get_user_sessions(conn, name: str) -> List[int]:
     cur = conn.cursor()
     cur.execute(
-        "SELECT session_id FROM registrations WHERE participant = ?", (name,)
+        "SELECT session_id FROM registrations WHERE participant = %s", (name,)
     )
     return [row[0] for row in cur.fetchall()]
 
 
-def update_user_sessions(conn: sqlite3.Connection, name: str, sessions: List[int]):
+def update_user_sessions(conn, name: str, sessions: List[int]):
     cur = conn.cursor()
-    cur.execute("DELETE FROM registrations WHERE participant = ?", (name,))
+    cur.execute("DELETE FROM registrations WHERE participant = %s", (name,))
     cur.executemany(
-        "INSERT INTO registrations(participant, session_id) VALUES (?, ?)",
+        "INSERT INTO registrations(participant, session_id) VALUES (%s, %s)",
         [(name, s) for s in sessions],
     )
     conn.commit()
