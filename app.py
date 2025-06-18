@@ -6,7 +6,7 @@ from typing import List, Dict
 
 DB_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:[Katzenklo$42]@db.zwghpoibdgbldnbsafym.supabase.co:5432/postgres",
+    "postgresql://postgres:Katzenklo$42@db.zwghpoibdgbldnbsafym.supabase.co:5432/postgres",
 )
 
 SESSION_CONFIG = [
