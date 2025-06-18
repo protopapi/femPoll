@@ -4,10 +4,7 @@ import pandas as pd
 import streamlit as st
 from typing import List, Dict
 
-DB_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:Katzenklo$42@aws-0-eu-central-2.pooler.supabase.com:5432/postgres",
-)
+DB_URL = "postgresql://postgres.zwghpoibdgbldnbsafym:Katzenklo$42@aws-0-eu-central-2.pooler.supabase.com:5432/postgres"
 
 SESSION_CONFIG = [
     ("Session 1", 5),
